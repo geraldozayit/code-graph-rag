@@ -7,3 +7,6 @@
 [submodule "grammars/tree-sitter-c-sharp"]
 	path = grammars/tree-sitter-c-sharp
 	url = https://github.com/tree-sitter/tree-sitter-c-sharp
+[submodule "grammars/tree-sitter-pascal"]
+	path = grammars/tree-sitter-pascal
+	url = https://github.com/miks1965/tree-sitter-pascalabcnet.git

@@ -186,6 +186,44 @@ LANGUAGE_CONFIGS = {
         module_node_types=["chunk"],
         call_node_types=["function_call"],
     ),
+    "pascal": LanguageConfig(
+        name="pascal",
+        file_extensions=[
+            ".pas",
+            ".pp",
+            ".p",
+            ".dpr",
+            ".dpk",
+            ".inc",
+            ".lfm",
+            ".dfm",
+            ".xfm",
+        ],
+        function_node_types=[
+            "proc_func_decl",
+            "method_decl",
+            "inclass_proc_func_decl",
+            "inclass_constr_destr_decl",
+            "func_decl_lambda",
+            "expl_func_decl_lambda",
+        ],
+        class_node_types=[
+            "class_or_interface_keyword",
+            "record_type",
+            "interface_part",
+        ],
+        module_node_types=[
+            "program_file",
+            "unit_file",
+            "parse_goal",
+        ],
+        call_node_types=[
+            "var_reference",
+            "variable",
+            "expr",
+        ],
+        package_indicators=["uses"],
+    ),
 }
 
 
