@@ -1,6 +1,6 @@
 [project]
 name = "graph-code"
-version = "0.0.2"
+version = "0.0.24"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -19,6 +19,7 @@ dependencies = [
     "prompt-toolkit>=3.0.0",
     "diff-match-patch>=20241021",
     "click>=8.0.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.setuptools]
@@ -44,6 +45,13 @@ treesitter-full = [
     "tree-sitter-scala>=0.24.0",
     "tree-sitter-java>=0.23.5",
     "tree-sitter-cpp>=0.23.0",
+    "tree-sitter-lua>=0.0.19",
+]
+
+semantic = [
+    "qdrant-client>=1.9.0",
+    "torch>=2.6.0",
+    "transformers>=4.0.0",
 ]
 
 [tool.ruff]
@@ -63,6 +71,13 @@ warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
 disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["codebase_rag/tests"]
+norecursedirs = ["grammars", ".git", "__pycache__", "*.egg-info", ".venv", "venv"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
 
 [dependency-groups]
 dev = [

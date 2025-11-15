@@ -5,14 +5,10 @@ This test specifically validates the fix for the sibling module bias where metho
 were incorrectly penalized compared to functions during candidate selection.
 """
 
-import os
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from codebase_rag.graph_updater import GraphUpdater
 
@@ -40,7 +36,9 @@ class TestImportDistanceCalculation:
         caller_module = "proj.pkg.caller_mod"
 
         # Calculate distance
-        distance = mock_updater._calculate_import_distance(function_qn, caller_module)
+        distance = mock_updater.factory.call_processor._calculate_import_distance(
+            function_qn, caller_module
+        )
 
         # Function should get proximity bonus (-1)
         # Base distance: max(3, 4) - 2 = 2, then -1 proximity bonus = 1
@@ -57,7 +55,9 @@ class TestImportDistanceCalculation:
         caller_module = "proj.pkg.caller_mod"
 
         # Calculate distance
-        distance = mock_updater._calculate_import_distance(method_qn, caller_module)
+        distance = mock_updater.factory.call_processor._calculate_import_distance(
+            method_qn, caller_module
+        )
 
         # Method should get proximity bonus (-1)
         # Base distance: max(3, 5) - 2 = 3, then -1 proximity bonus = 2
@@ -78,11 +78,13 @@ class TestImportDistanceCalculation:
         caller_module = "proj.pkg.caller_mod"
 
         # Calculate distances
-        func_distance = mock_updater._calculate_import_distance(
+        func_distance = mock_updater.factory.call_processor._calculate_import_distance(
             function_qn, caller_module
         )
-        method_distance = mock_updater._calculate_import_distance(
-            method_qn, caller_module
+        method_distance = (
+            mock_updater.factory.call_processor._calculate_import_distance(
+                method_qn, caller_module
+            )
         )
 
         # Both get the same proximity bonus, difference should only be from nesting level
@@ -103,11 +105,13 @@ class TestImportDistanceCalculation:
         caller_module = "proj.pkg.caller_mod"
 
         # Calculate distances
-        func_distance = mock_updater._calculate_import_distance(
+        func_distance = mock_updater.factory.call_processor._calculate_import_distance(
             function_qn, caller_module
         )
-        method_distance = mock_updater._calculate_import_distance(
-            method_qn, caller_module
+        method_distance = (
+            mock_updater.factory.call_processor._calculate_import_distance(
+                method_qn, caller_module
+            )
         )
 
         # Neither should get proximity bonus since they're in different packages
@@ -129,11 +133,13 @@ class TestImportDistanceCalculation:
         caller_module = "proj.pkg.caller_mod"
 
         # Calculate distances
-        func_distance = mock_updater._calculate_import_distance(
+        func_distance = mock_updater.factory.call_processor._calculate_import_distance(
             function_qn, caller_module
         )
-        method_distance = mock_updater._calculate_import_distance(
-            method_qn, caller_module
+        method_distance = (
+            mock_updater.factory.call_processor._calculate_import_distance(
+                method_qn, caller_module
+            )
         )
 
         # Same module gets best proximity: Functions=0, Methods=1 (due to nesting)
@@ -151,7 +157,9 @@ class TestImportDistanceCalculation:
         caller_module = "proj.pkg.caller_mod"
 
         # Should not crash and should treat as function
-        distance = mock_updater._calculate_import_distance(unknown_qn, caller_module)
+        distance = mock_updater.factory.call_processor._calculate_import_distance(
+            unknown_qn, caller_module
+        )
         assert isinstance(distance, int), (
             "Should return integer distance even for unknown candidates"
         )
@@ -169,11 +177,13 @@ class TestImportDistanceCalculation:
         caller_module = "proj.pkg.caller_mod"
 
         # Both should get the same proximity bonus
-        func_distance = mock_updater._calculate_import_distance(
+        func_distance = mock_updater.factory.call_processor._calculate_import_distance(
             function_qn, caller_module
         )
-        method_distance = mock_updater._calculate_import_distance(
-            method_qn, caller_module
+        method_distance = (
+            mock_updater.factory.call_processor._calculate_import_distance(
+                method_qn, caller_module
+            )
         )
 
         # Verify both got the same proximity bonus with expected nesting difference

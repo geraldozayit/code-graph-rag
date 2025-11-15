@@ -18,7 +18,7 @@
 </p>
 </div>
 
-# Graph-Code: A Multi-Language Graph-Based AI Assistant
+# Graph-Code: A Graph-Based RAG System for Any Codebases
 
 An accurate Retrieval-Augmented Generation (RAG) system that analyzes multi-language codebases using Tree-sitter, builds comprehensive knowledge graphs, and enables natural language querying of codebase structure and relationships as well as editing capabilities.
 
@@ -34,12 +34,26 @@ Use the Makefile for:
 - **make python**: Install dependencies for Python only.
 - **make dev**: Setup dev environment (install deps + pre-commit hooks).
 - **make test**: Run all tests.
+- **make test-parallel**: Run tests in parallel for faster execution.
 - **make clean**: Clean up build artifacts and cache.
 - **make help**: Show available commands.
 
 ## 🚀 Features
 
-- **🌍 Multi-Language Support**: Supports Python, JavaScript, TypeScript, Rust, Go, Scala, Java, and C++ codebases
+- **🌍 Multi-Language Support**:
+
+  | Language | Status | Extensions | Functions | Classes/Structs | Modules | Package Detection | Additional Features |
+  |----------|--------|------------|-----------|-----------------|---------|-------------------|---------------------|
+  | ✅ Python | **Fully Supported** | `.py` | ✅ | ✅ | ✅ | `__init__.py` | Type inference, decorators, nested functions |
+  | ✅ JavaScript | **Fully Supported** | `.js`, `.jsx` | ✅ | ✅ | ✅ | - | ES6 modules, CommonJS, prototype methods, object methods, arrow functions |
+  | ✅ TypeScript | **Fully Supported** | `.ts`, `.tsx` | ✅ | ✅ | ✅ | - | Interfaces, type aliases, enums, namespaces, ES6/CommonJS modules |
+  | ✅ C++ | **Fully Supported** | `.cpp`, `.h`, `.hpp`, `.cc`, `.cxx`, `.hxx`, `.hh`, `.ixx`, `.cppm`, `.ccm` | ✅ | ✅ (classes/structs/unions/enums) | ✅ | CMakeLists.txt, Makefile | Constructors, destructors, operator overloading, templates, lambdas, C++20 modules, namespaces |
+  | ✅ Lua | **Fully Supported** | `.lua` | ✅ | ✅ (tables/modules) | ✅ | - | Local/global functions, metatables, closures, coroutines |
+  | ✅ Rust | **Fully Supported** | `.rs` | ✅ | ✅ (structs/enums) | ✅ | - | impl blocks, associated functions |
+  | ✅ Java | **Fully Supported** | `.java` | ✅ | ✅ (classes/interfaces/enums) | ✅ | package declarations | Generics, annotations, modern features (records/sealed classes), concurrency, reflection |
+  | 🚧 Go | In Development | `.go` | ✅ | ✅ (structs) | ✅ | - | Methods, type declarations |
+  | 🚧 Scala | In Development | `.scala`, `.sc` | ✅ | ✅ (classes/objects/traits) | ✅ | package declarations | Case classes, objects |
+  | 🚧 C# | In Development | `.cs` | - | - | - | - | Classes, interfaces, generics (planned) |
 - **🌳 Tree-sitter Parsing**: Uses Tree-sitter for robust, language-agnostic AST parsing
 - **📊 Knowledge Graph Storage**: Uses Memgraph to store codebase structure as an interconnected graph
 - **🗣️ Natural Language Querying**: Ask questions about your codebase in plain English
@@ -128,28 +142,58 @@ cp .env.example .env
 
 ### Configuration Options
 
-#### Option 1: Cloud Models (Gemini)
+The new provider-explicit configuration supports mixing different providers for orchestrator and cypher models.
+
+#### Option 1: All Ollama (Local Models)
 
 ```bash
 # .env file
-GEMINI_API_KEY=your_gemini_api_key_here
-```
-Get your free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+ORCHESTRATOR_PROVIDER=ollama
+ORCHESTRATOR_MODEL=llama3.2
+ORCHESTRATOR_ENDPOINT=http://localhost:11434/v1
 
-#### Option 2: OpenAI Models
+CYPHER_PROVIDER=ollama
+CYPHER_MODEL=codellama
+CYPHER_ENDPOINT=http://localhost:11434/v1
+```
+
+#### Option 2: All OpenAI Models
 ```bash
 # .env file
-OPENAI_API_KEY=your_openai_api_key_here
+ORCHESTRATOR_PROVIDER=openai
+ORCHESTRATOR_MODEL=gpt-4o
+ORCHESTRATOR_API_KEY=sk-your-openai-key
+
+CYPHER_PROVIDER=openai
+CYPHER_MODEL=gpt-4o-mini
+CYPHER_API_KEY=sk-your-openai-key
 ```
 
-#### Option 3: Local Models (Ollama)
+#### Option 3: All Google Models
 ```bash
 # .env file
-LOCAL_MODEL_ENDPOINT=http://localhost:11434/v1
-LOCAL_ORCHESTRATOR_MODEL_ID=llama3
-LOCAL_CYPHER_MODEL_ID=llama3
-LOCAL_MODEL_API_KEY=ollama
+ORCHESTRATOR_PROVIDER=google
+ORCHESTRATOR_MODEL=gemini-2.5-pro
+ORCHESTRATOR_API_KEY=your-google-api-key
+
+CYPHER_PROVIDER=google
+CYPHER_MODEL=gemini-2.5-flash
+CYPHER_API_KEY=your-google-api-key
 ```
+
+#### Option 4: Mixed Providers
+```bash
+# .env file - Google orchestrator + Ollama cypher
+ORCHESTRATOR_PROVIDER=google
+ORCHESTRATOR_MODEL=gemini-2.5-pro
+ORCHESTRATOR_API_KEY=your-google-api-key
+
+CYPHER_PROVIDER=ollama
+CYPHER_MODEL=codellama
+CYPHER_ENDPOINT=http://localhost:11434/v1
+```
+
+Get your Google API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 **Install and run Ollama**:
 ```bash
@@ -157,9 +201,9 @@ LOCAL_MODEL_API_KEY=ollama
 curl -fsSL https://ollama.ai/install.sh | sh
 
 # Pull required models
-ollama pull llama3
+ollama pull llama3.2
 # Or try other models like:
-# ollama pull llama3.1
+# ollama pull llama3
 # ollama pull mistral
 # ollama pull codellama
 
@@ -197,6 +241,13 @@ python -m codebase_rag.main start --repo-path /path/to/repo2 --update-graph
 python -m codebase_rag.main start --repo-path /path/to/repo3 --update-graph
 ```
 
+**Control Memgraph batch flushing:**
+```bash
+# Flush every 5,000 records instead of the default from settings
+python -m codebase_rag.main start --repo-path /path/to/repo --update-graph \
+  --batch-size 5000
+```
+
 The system automatically detects and processes files for all supported languages (see Multi-Language Support section).
 
 ### Step 2: Query the Codebase
@@ -207,17 +258,70 @@ Start the interactive RAG CLI:
 python -m codebase_rag.main start --repo-path /path/to/your/repo
 ```
 
+### Step 2.5: Real-Time Graph Updates (Optional)
+
+For active development, you can keep your knowledge graph automatically synchronized with code changes using the realtime updater. This is particularly useful when you're actively modifying code and want the AI assistant to always work with the latest codebase structure.
+
+**What it does:**
+- Watches your repository for file changes (create, modify, delete)
+- Automatically updates the knowledge graph in real-time
+- Maintains consistency by recalculating all function call relationships
+- Filters out irrelevant files (`.git`, `node_modules`, etc.)
+
+**How to use:**
+
+Run the realtime updater in a separate terminal:
+
+```bash
+# Using Python directly
+python realtime_updater.py /path/to/your/repo
+
+# Or using the Makefile
+make watch REPO_PATH=/path/to/your/repo
+```
+
+**With custom Memgraph settings:**
+```bash
+# Python
+python realtime_updater.py /path/to/your/repo --host localhost --port 7687 --batch-size 1000
+
+# Makefile
+make watch REPO_PATH=/path/to/your/repo HOST=localhost PORT=7687 BATCH_SIZE=1000
+```
+
+**Multi-terminal workflow:**
+```bash
+# Terminal 1: Start the realtime updater
+python realtime_updater.py ~/my-project
+
+# Terminal 2: Run the AI assistant
+python -m codebase_rag.main start --repo-path ~/my-project
+```
+
+**Performance note:** The updater currently recalculates all CALLS relationships on every file change to ensure consistency. This prevents "island" problems where changes in one file aren't reflected in relationships from other files, but may impact performance on very large codebases with frequent changes. **Note:** Optimization of this behavior is a work in progress.
+
+**CLI Arguments:**
+- `repo_path` (required): Path to repository to watch
+- `--host`: Memgraph host (default: `localhost`)
+- `--port`: Memgraph port (default: `7687`)
+- `--batch-size`: Number of buffered nodes/relationships before flushing to Memgraph
+
 **Specify Custom Models:**
 ```bash
 # Use specific local models
 python -m codebase_rag.main start --repo-path /path/to/your/repo \
-  --orchestrator-model llama3.1 \
-  --cypher-model codellama
+  --orchestrator ollama:llama3.2 \
+  --cypher ollama:codellama
 
 # Use specific Gemini models
 python -m codebase_rag.main start --repo-path /path/to/your/repo \
-  --orchestrator-model gemini-2.0-flash-thinking-exp-01-21 \
-  --cypher-model gemini-2.5-flash-lite-preview-06-17
+  --orchestrator google:gemini-2.0-flash-thinking-exp-01-21 \
+  --cypher google:gemini-2.5-flash-lite-preview-06-17
+
+# Use mixed providers
+python -m codebase_rag.main start --repo-path /path/to/your/repo \
+  --orchestrator google:gemini-2.0-flash-thinking-exp-01-21 \
+  --cypher ollama:codellama
 ```
 
 Example queries (works across all supported languages):
@@ -228,13 +332,17 @@ Example queries (works across all supported languages):
 - "List all TypeScript components"
 - "Find Rust structs and their methods"
 - "Show me Go interfaces and implementations"
+- "Find all C++ operator overloads in the Matrix class"
+- "Show me C++ template functions with their specializations"
+- "List all C++ namespaces and their contained classes"
+- "Find C++ lambda expressions used in algorithms"
 - "Add logging to all database connection functions"
 - "Refactor the User class to use dependency injection"
 - "Convert these Python functions to async/await pattern"
 - "Add error handling to authentication methods"
 - "Optimize this function for better performance"
 
-### Step 3: Export Graph Data (New!)
+### Step 3: Export Graph Data
 
 For programmatic access and integration with other tools, you can export the entire knowledge graph to JSON:
 
@@ -246,6 +354,11 @@ python -m codebase_rag.main start --repo-path /path/to/repo --update-graph --cle
 **Export existing graph without updating:**
 ```bash
 python -m codebase_rag.main export -o my_graph.json
+```
+
+**Optional: adjust Memgraph batching during export:**
+```bash
+python -m codebase_rag.main export -o my_graph.json --batch-size 5000
 ```
 
 **Working with exported data:**
@@ -281,7 +394,7 @@ This provides a reliable, programmatic way to access your codebase structure wit
 - Building documentation generators
 - Creating code metrics dashboards
 
-### Step 4: Code Optimization (New!)
+### Step 4: Code Optimization
 
 For AI-powered codebase optimization with best practices guidance:
 
@@ -301,7 +414,11 @@ python -m codebase_rag.main optimize python \
 ```bash
 python -m codebase_rag.main optimize javascript \
   --repo-path /path/to/frontend \
-  --orchestrator-model gemini-2.0-flash-thinking-exp-01-21
+  --orchestrator google:gemini-2.0-flash-thinking-exp-01-21
+
+# Optional: override Memgraph batch flushing during optimization
+python -m codebase_rag.main optimize javascript --repo-path /path/to/frontend \
+  --batch-size 5000
 ```
 
 **Supported Languages for Optimization:**
@@ -354,9 +471,10 @@ python -m codebase_rag.main optimize rust \
 The agent will incorporate the guidance from your reference documents when suggesting optimizations, ensuring they align with your project's standards and architectural decisions.
 
 **Common CLI Arguments:**
-- `--orchestrator-model`: Specify model for main operations
-- `--cypher-model`: Specify model for graph queries
+- `--orchestrator`: Specify provider:model for main operations (e.g., `google:gemini-2.0-flash-thinking-exp-01-21`, `ollama:llama3.2`)
+- `--cypher`: Specify provider:model for graph queries (e.g., `google:gemini-2.5-flash-lite-preview-06-17`, `ollama:codellama`)
 - `--repo-path`: Path to repository (defaults to current directory)
+- `--batch-size`: Override Memgraph flush batch size (defaults to `MEMGRAPH_BATCH_SIZE` in settings)
 - `--reference-document`: Path to reference documentation (optimization only)
 
 ## 📊 Graph Schema
@@ -377,11 +495,11 @@ The knowledge graph uses the following node types and relationships:
 ### Language-Specific Mappings
 - **Python**: `function_definition`, `class_definition`
 - **JavaScript/TypeScript**: `function_declaration`, `arrow_function`, `class_declaration`
+- **C++**: `function_definition`, `template_declaration`, `lambda_expression`, `class_specifier`, `struct_specifier`, `union_specifier`, `enum_specifier`
 - **Rust**: `function_item`, `struct_item`, `enum_item`, `impl_item`
 - **Go**: `function_declaration`, `method_declaration`, `type_declaration`
 - **Scala**: `function_definition`, `class_definition`, `object_definition`, `trait_definition`
 - **Java**: `method_declaration`, `class_declaration`, `interface_declaration`, `enum_declaration`
-- **C++**: `function_definition`, `constructor_definition`, `destructor_definition`, `class_specifier`, `struct_specifier`, `union_specifier`, `enum_specifier`
 
 ### Relationships
 - `CONTAINS_PACKAGE`: Project or Package contains Package nodes
@@ -397,21 +515,38 @@ The knowledge graph uses the following node types and relationships:
 
 Configuration is managed through environment variables in `.env` file:
 
-### Gemini (Cloud) Configuration
-- `GEMINI_API_KEY`: Required when  using Google models.
-- `GEMINI_MODEL_ID`: Main model for orchestration (default: `gemini-2.5-pro`)
-- `MODEL_CYPHER_ID`: Model for Cypher generation (default: `gemini-2.5-flash-lite-preview-06-17`)
+### Provider-Specific Settings
 
-### Local Models Configuration
-- `LOCAL_MODEL_ENDPOINT`: Ollama endpoint (default: `http://localhost:11434/v1`)
-- `LOCAL_ORCHESTRATOR_MODEL_ID`: Model for main RAG orchestration (default: `llama3`)
-- `LOCAL_CYPHER_MODEL_ID`: Model for Cypher query generation (default: `llama3`)
-- `LOCAL_MODEL_API_KEY`: API key for local models (default: `ollama`)
+#### Orchestrator Model Configuration
+- `ORCHESTRATOR_PROVIDER`: Provider name (`google`, `openai`, `ollama`)
+- `ORCHESTRATOR_MODEL`: Model ID (e.g., `gemini-2.5-pro`, `gpt-4o`, `llama3.2`)
+- `ORCHESTRATOR_API_KEY`: API key for the provider (if required)
+- `ORCHESTRATOR_ENDPOINT`: Custom endpoint URL (if required)
+- `ORCHESTRATOR_PROJECT_ID`: Google Cloud project ID (for Vertex AI)
+- `ORCHESTRATOR_REGION`: Google Cloud region (default: `us-central1`)
+- `ORCHESTRATOR_PROVIDER_TYPE`: Google provider type (`gla` or `vertex`)
+- `ORCHESTRATOR_THINKING_BUDGET`: Thinking budget for reasoning models
+- `ORCHESTRATOR_SERVICE_ACCOUNT_FILE`: Path to service account file (for Vertex AI)
 
-### Other Settings
+#### Cypher Model Configuration
+- `CYPHER_PROVIDER`: Provider name (`google`, `openai`, `ollama`)
+- `CYPHER_MODEL`: Model ID (e.g., `gemini-2.5-flash`, `gpt-4o-mini`, `codellama`)
+- `CYPHER_API_KEY`: API key for the provider (if required)
+- `CYPHER_ENDPOINT`: Custom endpoint URL (if required)
+- `CYPHER_PROJECT_ID`: Google Cloud project ID (for Vertex AI)
+- `CYPHER_REGION`: Google Cloud region (default: `us-central1`)
+- `CYPHER_PROVIDER_TYPE`: Google provider type (`gla` or `vertex`)
+- `CYPHER_THINKING_BUDGET`: Thinking budget for reasoning models
+- `CYPHER_SERVICE_ACCOUNT_FILE`: Path to service account file (for Vertex AI)
+
+### System Settings
 - `MEMGRAPH_HOST`: Memgraph hostname (default: `localhost`)
 - `MEMGRAPH_PORT`: Memgraph port (default: `7687`)
+- `MEMGRAPH_HTTP_PORT`: Memgraph HTTP port (default: `7444`)
+- `LAB_PORT`: Memgraph Lab port (default: `3000`)
+- `MEMGRAPH_BATCH_SIZE`: Batch size for Memgraph operations (default: `1000`)
 - `TARGET_REPO_PATH`: Default repository path (default: `.`)
+- `LOCAL_MODEL_ENDPOINT`: Fallback endpoint for Ollama (default: `http://localhost:11434/v1`)
 
 ### Key Dependencies
 - **tree-sitter**: Core Tree-sitter library for language-agnostic parsing
@@ -449,33 +584,26 @@ The agent uses AST-based function targeting with Tree-sitter for precise code mo
 
 ## 🌍 Multi-Language Support
 
-### Supported Languages & Features
-
-| Language   | Extensions    | Functions | Classes/Structs | Modules | Package Detection |
-|------------|---------------|-----------|-----------------|---------|-------------------|
-| Python     | `.py`         | ✅        | ✅              | ✅      | `__init__.py`    |
-| JavaScript | `.js`, `.jsx` | ✅        | ✅              | ✅      | -                |
-| TypeScript | `.ts`, `.tsx` | ✅        | ✅              | ✅      | -                |
-| Rust       | `.rs`         | ✅        | ✅ (structs/enums) | ✅    | -                |
-| Go         | `.go`         | ✅        | ✅ (structs)    | ✅      | -                |
-| Scala      | `.scala`, `.sc` | ✅      | ✅ (classes/objects/traits) | ✅ | package declarations |
-| Java       | `.java`       | ✅        | ✅ (classes/interfaces/enums) | ✅ | package declarations |
-| C++        | `.cpp`, `.h`, `.hpp`, `.cc`, `.cxx`, `.hxx`, `.hh`| ✅      | ✅ (classes/structs/unions/enums) | ✅      | -                |
-
 ### Language-Specific Features
 
-- **Python**: Full support including nested functions, methods, classes, and package structure
-- **JavaScript/TypeScript**: Functions, arrow functions, classes, and method definitions
-- **Rust**: Functions, structs, enums, impl blocks, and associated functions
-- **Go**: Functions, methods, type declarations, and struct definitions
-- **Scala**: Functions, methods, classes, objects, traits, case classes, and Scala 3 syntax
-- **Java**: Methods, constructors, classes, interfaces, enums, and annotation types
-- **C++**: Functions, classes, structs, and methods
+- **Python**: Full support including nested functions, methods, classes, decorators, type hints, and package structure
+- **JavaScript**: ES6 modules, CommonJS modules, prototype-based methods, object methods, arrow functions, classes, and JSX support
+- **TypeScript**: All JavaScript features plus interfaces, type aliases, enums, namespaces, generics, and advanced type inference
+- **C++**: Comprehensive support including functions, classes, structs, unions, enums, constructors, destructors, operator overloading, templates, lambdas, namespaces, C++20 modules, inheritance, method calls, and modern C++ features
+- **Lua**: Functions, local/global variables, tables, metatables, closures, coroutines, and object-oriented patterns
+- **Rust**: Functions, structs, enums, impl blocks, traits, and associated functions
+- **Go**: Functions, methods, type declarations, interfaces, and struct definitions
+- **Scala**: Functions, methods, classes, objects, traits, case classes, implicits, and Scala 3 syntax
+- **Java**: Methods, constructors, classes, interfaces, enums, annotations, generics, modern features (records, sealed classes, switch expressions), concurrency patterns, reflection, and enterprise frameworks
 
 
 ### Adding New Languages
 
 Graph-Code makes it easy to add support for any language that has a Tree-sitter grammar. The system automatically handles grammar compilation and integration.
+
+> **⚠️ Recommendation**: While you can add languages yourself, we recommend waiting for official full support to ensure optimal parsing quality, comprehensive feature coverage, and robust integration. The languages marked as "In Development" above will receive dedicated optimization and testing.
+
+> **💡 Request Support**: If you want a specific language to be officially supported, please [submit an issue](https://github.com/vitali87/code-graph-rag/issues) with your language request.
 
 #### Quick Start: Add a Language
 

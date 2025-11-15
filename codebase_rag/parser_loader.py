@@ -1,11 +1,18 @@
+import importlib
 import os
+import subprocess
+import sys
 from collections.abc import Callable
+from copy import deepcopy
 from typing import Any
 
 from loguru import logger
 from tree_sitter import Language, Parser, Query
 
 from .language_config import LANGUAGE_CONFIGS
+
+logger.remove()
+logger.add(sys.stderr, level="INFO")
 
 # Define a type for the language library loaders
 LanguageLoader = Callable[[], object] | None
@@ -20,9 +27,6 @@ def _try_load_from_submodule(lang_name: str) -> LanguageLoader:
         return None
 
     try:
-        import subprocess
-        import sys
-
         # Add the Python bindings to path
         if python_bindings_path not in sys.path:
             sys.path.insert(0, python_bindings_path)
@@ -50,8 +54,6 @@ def _try_load_from_submodule(lang_name: str) -> LanguageLoader:
                 logger.debug(f"Successfully built {lang_name} bindings")
 
             # Now try to import the module
-            import importlib
-
             logger.debug(f"Attempting to import module: {module_name}")
             module = importlib.import_module(module_name)
 
@@ -145,6 +147,14 @@ def _import_language_loaders() -> dict[str, LanguageLoader]:
     except ImportError:
         loaders["cpp"] = _try_load_from_submodule("cpp")
 
+    # Lua support
+    try:
+        from tree_sitter_lua import language as lua_language_so
+
+        loaders["lua"] = lua_language_so
+    except ImportError:
+        loaders["lua"] = _try_load_from_submodule("lua")
+
     # Automatically try submodule loading for any language not already loaded
     for lang_name in LANGUAGE_CONFIGS.keys():
         if lang_name not in loaders or loaders[lang_name] is None:
@@ -165,7 +175,10 @@ def load_parsers() -> tuple[dict[str, Parser], dict[str, Any]]:
     queries: dict[str, Any] = {}
     available_languages = []
 
-    for lang_name, lang_config in LANGUAGE_CONFIGS.items():
+    # Deepcopy to avoid modifying the original configs
+    configs = deepcopy(LANGUAGE_CONFIGS)
+
+    for lang_name, lang_config in configs.items():
         if lang_lib := LANGUAGE_LIBRARIES.get(lang_name):
             try:
                 language = Language(lang_lib())
@@ -173,24 +186,36 @@ def load_parsers() -> tuple[dict[str, Parser], dict[str, Any]]:
 
                 parsers[lang_name] = parser
 
-                # Compile queries
-                function_patterns = " ".join(
-                    [
-                        f"({node_type}) @function"
-                        for node_type in lang_config.function_node_types
-                    ]
+                # Create Tree-sitter queries - use pre-formatted queries if available, otherwise generate from node types
+                function_patterns = (
+                    lang_config.function_query
+                    if lang_config.function_query
+                    else " ".join(
+                        [
+                            f"({node_type}) @function"
+                            for node_type in lang_config.function_node_types
+                        ]
+                    )
                 )
-                class_patterns = " ".join(
-                    [
-                        f"({node_type}) @class"
-                        for node_type in lang_config.class_node_types
-                    ]
+                class_patterns = (
+                    lang_config.class_query
+                    if lang_config.class_query
+                    else " ".join(
+                        [
+                            f"({node_type}) @class"
+                            for node_type in lang_config.class_node_types
+                        ]
+                    )
                 )
-                call_patterns = " ".join(
-                    [
-                        f"({node_type}) @call"
-                        for node_type in lang_config.call_node_types
-                    ]
+                call_patterns = (
+                    lang_config.call_query
+                    if lang_config.call_query
+                    else " ".join(
+                        [
+                            f"({node_type}) @call"
+                            for node_type in lang_config.call_node_types
+                        ]
+                    )
                 )
 
                 # Create import query patterns
@@ -218,14 +243,64 @@ def load_parsers() -> tuple[dict[str, Parser], dict[str, Any]]:
                     all_import_patterns.append(import_from_patterns)
                 combined_import_patterns = " ".join(all_import_patterns)
 
+                # Create locals query for variable tracking
+                locals_query = None
+                if lang_name in ("javascript", "typescript"):
+                    # Create language-specific locals patterns
+                    if lang_name == "javascript":
+                        locals_patterns = """
+                        ; Variable definitions
+                        (variable_declarator name: (identifier) @local.definition)
+                        (function_declaration name: (identifier) @local.definition)
+                        (class_declaration name: (identifier) @local.definition)
+
+                        ; Variable references
+                        (identifier) @local.reference
+                        """
+                    else:  # typescript
+                        # TypeScript-specific patterns (comprehensive like JavaScript)
+                        locals_patterns = """
+                        ; Variable definitions (TypeScript has multiple declaration types)
+                        (variable_declarator name: (identifier) @local.definition)
+                        (lexical_declaration (variable_declarator name: (identifier) @local.definition))
+                        (variable_declaration (variable_declarator name: (identifier) @local.definition))
+
+                        ; Function definitions
+                        (function_declaration name: (identifier) @local.definition)
+
+                        ; Class definitions (uses type_identifier for class names)
+                        (class_declaration name: (type_identifier) @local.definition)
+
+                        ; Variable references
+                        (identifier) @local.reference
+                        """
+
+                    try:
+                        locals_query = Query(language, locals_patterns)
+                    except Exception as e:
+                        logger.debug(
+                            f"Failed to create locals query for {lang_name}: {e}"
+                        )
+                        locals_query = None
+
                 queries[lang_name] = {
-                    "functions": Query(language, function_patterns),
-                    "classes": Query(language, class_patterns),
+                    "functions": (
+                        Query(language, function_patterns)
+                        if function_patterns
+                        else None
+                    ),
+                    "classes": (
+                        Query(language, class_patterns) if class_patterns else None
+                    ),
                     "calls": Query(language, call_patterns) if call_patterns else None,
-                    "imports": Query(language, combined_import_patterns)
-                    if combined_import_patterns
-                    else None,
+                    "imports": (
+                        Query(language, combined_import_patterns)
+                        if combined_import_patterns
+                        else None
+                    ),
+                    "locals": locals_query,
                     "config": lang_config,
+                    "language": language,
                 }
 
                 available_languages.append(lang_name)
